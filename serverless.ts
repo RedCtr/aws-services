@@ -2,7 +2,6 @@ import type { AWS } from '@serverless/typescript';
 
 import { hello, authorizer, putEvent, proccessEvent } from '@functions/lambdas';
 import resources from 'src/resources';
-import { handlerPath } from '@libs/handler-resolver';
 
 const serverlessConfiguration = {
   service: 'login-demo',
@@ -37,7 +36,7 @@ const serverlessConfiguration = {
     putEvent,
     proccessEvent,
     checkInventoryLambda: {
-      handler: `${handlerPath(__dirname)}/src/functions/handler.checkInventory`
+      handler: "src/functions/handler.checkInventory"
     }
   },
   stepFunctions: {
@@ -45,11 +44,37 @@ const serverlessConfiguration = {
       InventoryCheckoutFlow: {
         name: "inventoryCheckoutFlow",
         definition: {
-          StartAt: "CheckInventoryLambda",
+          StartAt: "CheckCustomerDetailType",
           States: {
+            CheckCustomerDetailType: {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.detail-type",
+                  "StringEquals": "CustomerFirstNameSet",
+                  "Next": "DispatchEventState"
+                },
+                {
+                  "Variable": "$.detail-type",
+                  "StringEquals": "CustomerLastNameSet",
+                  "Next": "CheckInventoryLambda"
+                }
+              ],
+              "Default": "FinalState"
+            },
+            DispatchEventState: {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::sns:publish",
+              "Parameters": {
+                "TopicArn": "arn:aws:sns:eu-north-1:287291510667:NotifyCommerceTool",
+                "Message.$": "$"
+              },
+              "Next": "DispatchMessageSucceed"
+            },
             CheckInventoryLambda: {
               "Type": "Task",
               "Resource": { "Fn::GetAtt": ["checkInventoryLambda", "Arn"] },
+              "ResultPath": "$.user",
               "Next": "WaitingSomeSeconds"
             },
 
@@ -58,7 +83,11 @@ const serverlessConfiguration = {
               "Seconds": 10,
               "Next": "FinalState"
             },
-
+            DispatchMessageSucceed: {
+              "Type": "Pass",
+              "Result": "An Email send with the event information to roomctr@gmail.com",
+              End: true
+            },
             FinalState: {
               "Type": "Pass",
               "Result": "Final State ......sss",
