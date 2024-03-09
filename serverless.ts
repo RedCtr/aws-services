@@ -2,11 +2,12 @@ import type { AWS } from '@serverless/typescript';
 
 import { hello, authorizer, putEvent, proccessEvent } from '@functions/lambdas';
 import resources from 'src/resources';
+import { handlerPath } from '@libs/handler-resolver';
 
-const serverlessConfiguration: AWS = {
+const serverlessConfiguration = {
   service: 'login-demo',
   frameworkVersion: '3',
-  plugins: ['serverless-esbuild', 'serverless-iam-roles-per-function'],
+  plugins: ['serverless-esbuild', 'serverless-iam-roles-per-function', 'serverless-step-functions'],
   provider: {
     name: 'aws',
     runtime: 'nodejs18.x',
@@ -34,7 +35,40 @@ const serverlessConfiguration: AWS = {
     authorizer,
     hello,
     putEvent,
-    proccessEvent
+    proccessEvent,
+    checkInventoryLambda: {
+      handler: `${handlerPath(__dirname)}/src/functions/handler.checkInventory`
+    }
+  },
+  stepFunctions: {
+    stateMachines: {
+      InventoryCheckoutFlow: {
+        name: "inventoryCheckoutFlow",
+        definition: {
+          StartAt: "CheckInventoryLambda",
+          States: {
+            CheckInventoryLambda: {
+              "Type": "Task",
+              "Resource": { "Fn::GetAtt": ["checkInventoryLambda", "Arn"] },
+              "Next": "WaitingSomeSeconds"
+            },
+
+            WaitingSomeSeconds: {
+              "Type": "Wait",
+              "Seconds": 10,
+              "Next": "FinalState"
+            },
+
+            FinalState: {
+              "Type": "Pass",
+              "Result": "Final State ......sss",
+              "End": true
+            }
+          }
+        }
+      }
+    }
+
   },
   package: { individually: true },
   custom: {
@@ -59,6 +93,6 @@ const serverlessConfiguration: AWS = {
       }
     }
   }
-};
+} as AWS;
 
 module.exports = serverlessConfiguration;
