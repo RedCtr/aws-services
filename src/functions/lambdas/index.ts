@@ -57,7 +57,7 @@ export const proccessEvent = {
       sqs: {
         arn: { "Fn::GetAtt": ["TargetSQS", "Arn"] },
         batchSize: 10,
-        maximumConcurrency: 1,
+        maximumConcurrency: 3,
         functionResponseType: "ReportBatchItemFailures",
       }
     }
